@@ -173,6 +173,7 @@ const Solutions: React.FC<SolutionsProps> = ({
   const [tooltipHeight, setTooltipHeight] = useState(0)
 
   const [isResetting, setIsResetting] = useState(false)
+  const [layout, setLayout] = useState<"stacked" | "sideBySide">("sideBySide")
 
   interface Screenshot {
     id: string
@@ -205,6 +206,13 @@ const Solutions: React.FC<SolutionsProps> = ({
     }
 
     fetchScreenshots()
+    
+    // Load layout preference from config
+    window.electronAPI.getConfig().then((config: any) => {
+      if (config.layout) {
+        setLayout(config.layout);
+      }
+    }).catch(err => console.error("Failed to load layout config:", err));
   }, [solutionData])
 
   const { showToast } = useToast()
@@ -500,40 +508,87 @@ const Solutions: React.FC<SolutionsProps> = ({
 
                 {solutionData && (
                   <>
-                    <ContentSection
-                      title={`My Thoughts (${COMMAND_KEY} + Arrow keys to scroll)`}
-                      content={
-                        thoughtsData && (
-                          <div className="space-y-3">
-                            <div className="space-y-1">
-                              {thoughtsData.map((thought, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-start gap-2"
-                                >
-                                  <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
-                                  <div>{thought}</div>
+                    {layout === "sideBySide" ? (
+                      <div className="flex gap-4">
+                        {/* Left column - Thoughts and Complexity */}
+                        <div className="flex-1 space-y-4" style={{ maxWidth: "45%" }}>
+                          <ContentSection
+                            title={`My Thoughts (${COMMAND_KEY} + Arrow keys to scroll)`}
+                            content={
+                              thoughtsData && (
+                                <div className="space-y-3">
+                                  <div className="space-y-1">
+                                    {thoughtsData.map((thought, index) => (
+                                      <div
+                                        key={index}
+                                        className="flex items-start gap-2"
+                                      >
+                                        <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+                                        <div>{thought}</div>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      }
-                      isLoading={!thoughtsData}
-                    />
+                              )
+                            }
+                            isLoading={!thoughtsData}
+                          />
+                          
+                          <ComplexitySection
+                            timeComplexity={timeComplexityData}
+                            spaceComplexity={spaceComplexityData}
+                            isLoading={!timeComplexityData || !spaceComplexityData}
+                          />
+                        </div>
+                        
+                        {/* Right column - Solution */}
+                        <div className="flex-1" style={{ maxWidth: "55%" }}>
+                          <SolutionSection
+                            title="Solution"
+                            content={solutionData}
+                            isLoading={!solutionData}
+                            currentLanguage={currentLanguage}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <ContentSection
+                          title={`My Thoughts (${COMMAND_KEY} + Arrow keys to scroll)`}
+                          content={
+                            thoughtsData && (
+                              <div className="space-y-3">
+                                <div className="space-y-1">
+                                  {thoughtsData.map((thought, index) => (
+                                    <div
+                                      key={index}
+                                      className="flex items-start gap-2"
+                                    >
+                                      <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+                                      <div>{thought}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          }
+                          isLoading={!thoughtsData}
+                        />
 
-                    <SolutionSection
-                      title="Solution"
-                      content={solutionData}
-                      isLoading={!solutionData}
-                      currentLanguage={currentLanguage}
-                    />
+                        <SolutionSection
+                          title="Solution"
+                          content={solutionData}
+                          isLoading={!solutionData}
+                          currentLanguage={currentLanguage}
+                        />
 
-                    <ComplexitySection
-                      timeComplexity={timeComplexityData}
-                      spaceComplexity={spaceComplexityData}
-                      isLoading={!timeComplexityData || !spaceComplexityData}
-                    />
+                        <ComplexitySection
+                          timeComplexity={timeComplexityData}
+                          spaceComplexity={spaceComplexityData}
+                          isLoading={!timeComplexityData || !spaceComplexityData}
+                        />
+                      </>
+                    )}
                   </>
                 )}
               </div>

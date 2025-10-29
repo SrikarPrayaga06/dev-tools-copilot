@@ -132,6 +132,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
   const [extractionModel, setExtractionModel] = useState("gpt-4o");
   const [solutionModel, setSolutionModel] = useState("gpt-4o");
   const [debuggingModel, setDebuggingModel] = useState("gpt-4o");
+  const [layout, setLayout] = useState<"stacked" | "sideBySide">("sideBySide");
   const [isLoading, setIsLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -161,6 +162,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
         extractionModel?: string;
         solutionModel?: string;
         debuggingModel?: string;
+        layout?: "stacked" | "sideBySide";
       }
 
       window.electronAPI
@@ -171,6 +173,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
           setExtractionModel(config.extractionModel || "gpt-4o");
           setSolutionModel(config.solutionModel || "gpt-4o");
           setDebuggingModel(config.debuggingModel || "gpt-4o");
+          setLayout(config.layout || "sideBySide");
         })
         .catch((error: unknown) => {
           console.error("Failed to load config:", error);
@@ -207,6 +210,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
         extractionModel,
         solutionModel,
         debuggingModel,
+        layout,
       });
       
       if (result) {
@@ -402,6 +406,56 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
                 
                 <div className="text-white/70">Zoom In</div>
                 <div className="text-white/90 font-mono">Ctrl+= / Cmd+=</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Layout Selection */}
+          <div className="space-y-2 mt-4">
+            <label className="text-sm font-medium text-white">Solution Layout</label>
+            <p className="text-xs text-white/60 mb-2">
+              Choose how to display code and explanations
+            </p>
+            <div className="flex gap-2">
+              <div
+                className={`flex-1 p-3 rounded-lg cursor-pointer transition-colors ${
+                  layout === "sideBySide"
+                    ? "bg-white/10 border border-white/20"
+                    : "bg-black/30 border border-white/5 hover:bg-white/5"
+                }`}
+                onClick={() => setLayout("sideBySide")}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      layout === "sideBySide" ? "bg-white" : "bg-white/20"
+                    }`}
+                  />
+                  <div className="flex flex-col">
+                    <p className="font-medium text-white text-sm">Side by Side</p>
+                    <p className="text-xs text-white/60">Explanation left, code right</p>
+                  </div>
+                </div>
+              </div>
+              <div
+                className={`flex-1 p-3 rounded-lg cursor-pointer transition-colors ${
+                  layout === "stacked"
+                    ? "bg-white/10 border border-white/20"
+                    : "bg-black/30 border border-white/5 hover:bg-white/5"
+                }`}
+                onClick={() => setLayout("stacked")}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      layout === "stacked" ? "bg-white" : "bg-white/20"
+                    }`}
+                  />
+                  <div className="flex flex-col">
+                    <p className="font-medium text-white text-sm">Stacked</p>
+                    <p className="text-xs text-white/60">Vertical layout (compact)</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

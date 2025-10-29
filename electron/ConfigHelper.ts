@@ -13,6 +13,9 @@ interface Config {
   debuggingModel: string;
   language: string;
   opacity: number;
+  windowWidth: number;
+  windowHeight: number;
+  layout: "stacked" | "sideBySide"; // Layout mode for solutions view
 }
 
 export class ConfigHelper extends EventEmitter {
@@ -24,7 +27,10 @@ export class ConfigHelper extends EventEmitter {
     solutionModel: "gemini-2.0-flash",
     debuggingModel: "gemini-2.0-flash",
     language: "python",
-    opacity: 1.0
+    opacity: 1.0,
+    windowWidth: 1200,
+    windowHeight: 700,
+    layout: "sideBySide" // Default to side-by-side layout
   };
 
   constructor() {
@@ -268,6 +274,39 @@ export class ConfigHelper extends EventEmitter {
    */
   public setLanguage(language: string): void {
     this.updateConfig({ language });
+  }
+  
+  /**
+   * Get the window layout preference
+   */
+  public getLayout(): "stacked" | "sideBySide" {
+    const config = this.loadConfig();
+    return config.layout || "sideBySide";
+  }
+
+  /**
+   * Set the window layout preference
+   */
+  public setLayout(layout: "stacked" | "sideBySide"): void {
+    this.updateConfig({ layout });
+  }
+  
+  /**
+   * Get window dimensions
+   */
+  public getWindowDimensions(): { width: number; height: number } {
+    const config = this.loadConfig();
+    return {
+      width: config.windowWidth || 1200,
+      height: config.windowHeight || 700
+    };
+  }
+  
+  /**
+   * Set window dimensions
+   */
+  public setWindowDimensions(width: number, height: number): void {
+    this.updateConfig({ windowWidth: width, windowHeight: height });
   }
   
   /**

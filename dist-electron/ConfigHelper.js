@@ -20,7 +20,10 @@ class ConfigHelper extends events_1.EventEmitter {
             solutionModel: "gemini-2.0-flash",
             debuggingModel: "gemini-2.0-flash",
             language: "python",
-            opacity: 1.0
+            opacity: 1.0,
+            windowWidth: 1200,
+            windowHeight: 700,
+            layout: "sideBySide" // Default to side-by-side layout
         };
         // Check if config.json exists in the project root first (for development)
         const projectConfigPath = node_path_1.default.join(process.cwd(), 'config.json');
@@ -246,6 +249,35 @@ class ConfigHelper extends events_1.EventEmitter {
      */
     setLanguage(language) {
         this.updateConfig({ language });
+    }
+    /**
+     * Get the window layout preference
+     */
+    getLayout() {
+        const config = this.loadConfig();
+        return config.layout || "sideBySide";
+    }
+    /**
+     * Set the window layout preference
+     */
+    setLayout(layout) {
+        this.updateConfig({ layout });
+    }
+    /**
+     * Get window dimensions
+     */
+    getWindowDimensions() {
+        const config = this.loadConfig();
+        return {
+            width: config.windowWidth || 1200,
+            height: config.windowHeight || 700
+        };
+    }
+    /**
+     * Set window dimensions
+     */
+    setWindowDimensions(width, height) {
+        this.updateConfig({ windowWidth: width, windowHeight: height });
     }
     /**
      * Test API key with the selected provider

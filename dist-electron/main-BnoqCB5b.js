@@ -6688,7 +6688,7 @@ class MultipartBody {
 }
 let fileFromPathWarned = false;
 async function fileFromPath(path2, ...args) {
-  const { fileFromPath: _fileFromPath } = await Promise.resolve().then(() => require("./fileFromPath-CapyT0Za.js"));
+  const { fileFromPath: _fileFromPath } = await Promise.resolve().then(() => require("./fileFromPath-DQN2ik8J.js"));
   if (!fileFromPathWarned) {
     console.warn(`fileFromPath is deprecated; use fs.createReadStream(${JSON.stringify(path2)}) instead`);
     fileFromPathWarned = true;
@@ -11937,7 +11937,11 @@ class ConfigHelper extends require$$0$2.EventEmitter {
       solutionModel: "gemini-2.0-flash",
       debuggingModel: "gemini-2.0-flash",
       language: "python",
-      opacity: 1
+      opacity: 1,
+      windowWidth: 1200,
+      windowHeight: 700,
+      layout: "sideBySide"
+      // Default to side-by-side layout
     };
     const projectConfigPath = path.join(process.cwd(), "config.json");
     if (fs$1.existsSync(projectConfigPath)) {
@@ -12128,6 +12132,35 @@ class ConfigHelper extends require$$0$2.EventEmitter {
    */
   setLanguage(language) {
     this.updateConfig({ language });
+  }
+  /**
+   * Get the window layout preference
+   */
+  getLayout() {
+    const config = this.loadConfig();
+    return config.layout || "sideBySide";
+  }
+  /**
+   * Set the window layout preference
+   */
+  setLayout(layout) {
+    this.updateConfig({ layout });
+  }
+  /**
+   * Get window dimensions
+   */
+  getWindowDimensions() {
+    const config = this.loadConfig();
+    return {
+      width: config.windowWidth || 1200,
+      height: config.windowHeight || 700
+    };
+  }
+  /**
+   * Set window dimensions
+   */
+  setWindowDimensions(width, height) {
+    this.updateConfig({ windowWidth: width, windowHeight: height });
   }
   /**
    * Test API key with the selected provider
@@ -21241,14 +21274,14 @@ class ProcessingHelper {
         const messages = [
           {
             role: "system",
-            content: "You are a coding challenge interpreter. Analyze the screenshot of the coding problem and extract all relevant information. Return the information in JSON format with these fields: problem_statement, constraints, example_input, example_output. Just return the structured JSON without any other text."
+            content: "Extract coding problem from screenshot. Return JSON only: {problem_statement, constraints, example_input, example_output}"
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Extract the coding problem details from these screenshots. Return in JSON format. Preferred coding language we gonna use for this problem is ${language}.`
+                text: `Language: ${language}. Extract problem as JSON.`
               },
               ...imageDataList.map((data) => ({
                 type: "image_url",
@@ -21287,7 +21320,7 @@ class ProcessingHelper {
               role: "user",
               parts: [
                 {
-                  text: `You are a coding challenge interpreter. Analyze the screenshots of the coding problem and extract all relevant information. Return the information in JSON format with these fields: problem_statement, constraints, example_input, example_output. Just return the structured JSON without any other text. Preferred coding language we gonna use for this problem is ${language}.`
+                  text: `Language: ${language}. Extract problem from screenshots as JSON: {problem_statement, constraints, example_input, example_output}`
                 },
                 ...imageDataList.map((data) => ({
                   inlineData: {
@@ -21401,40 +21434,28 @@ class ProcessingHelper {
           progress: 60
         });
       }
-      const promptText = `
-Generate a detailed solution for the following coding problem:
+      const promptText = `Problem: ${problemInfo.problem_statement}
+Constraints: ${problemInfo.constraints || "None"}
+Input: ${problemInfo.example_input || "N/A"}
+Output: ${problemInfo.example_output || "N/A"}
+Language: ${language}
 
-PROBLEM STATEMENT:
-${problemInfo.problem_statement}
+Provide:
+1. Code (clean ${language} implementation with inline comments explaining key steps and logic)
+2. My Thoughts (bullet points):
+   - First, restate the problem in my own words
+   - What the question is asking for
+   - High-level approach/strategy I'll use
+   - Key steps to implement the solution
+   - Any edge cases or special considerations
+3. Time complexity O(X) + 2-sentence explanation
+4. Space complexity O(X) + 2-sentence explanation
 
-CONSTRAINTS:
-${problemInfo.constraints || "No specific constraints provided."}
-
-EXAMPLE INPUT:z
-${problemInfo.example_input || "No example input provided."}
-
-EXAMPLE OUTPUT:
-${problemInfo.example_output || "No example output provided."}
-
-LANGUAGE: ${language}
-
-I need the response in the following format if a coding problem is detected:
-1. Code: A clean, optimized implementation in ${language}
-2. Your Thoughts: A list of step by step thoughts in casual language on how you approached the problem 
-3. Time complexity: O(X) with a detailed explanation (at least 2 sentences)
-4. Space complexity: O(X) with a detailed explanation  (at least 2 sentences)
-
-For complexity explanations, please be thorough. For example: "Time complexity: O(n) because we iterate through the array only once. This is optimal as we need to examine each element at least once to find the solution." or "Space complexity: O(n) because in the worst case, we store all elements in the hashmap. The additional space scales linearly with the input size."
-
-Your solution should be efficient, well-commented, use traditional loop structures and variable assignments, avoid single-line shortcuts and handle edge cases.
-
-I need the response in the following format if a system design problem is detected:
-1. System Design: A high-level overview of the system architecture, including key components and their interactions.
-2. Database Schema: A detailed description of the database schema, including tables, fields, and relationships.
-3. API Endpoints: A list of API endpoints, including request/response formats and authentication requirements.
-4. Scalability Considerations: A discussion of how the system can be scaled to handle increased load, including caching strategies, load balancing, and database sharding.
-
-`;
+For system design problems:
+1. Architecture overview
+2. Database schema
+3. API endpoints
+4. Scalability considerations`;
       let responseContent;
       if (config.apiProvider === "openai") {
         if (!this.openaiClient) {
@@ -21446,7 +21467,7 @@ I need the response in the following format if a system design problem is detect
         const solutionResponse = await this.openaiClient.chat.completions.create({
           model: config.solutionModel || "gpt-4o",
           messages: [
-            { role: "system", content: "You are an expert coding interview assistant. Provide clear, optimal solutions with detailed explanations." },
+            { role: "system", content: "Expert coding assistant. Code naturally as if live-coding without AI:\n- Explicit for/while loops (no map/filter/reduce)\n- No one-liners or shortcuts\n- Full if-else (avoid ternary)\n- No unnecessary imports\n- Manual iteration (no enumerate/zip/comprehensions)\n- Verbose, step-by-step\n- Clear variable names" },
             { role: "user", content: promptText }
           ],
           max_tokens: 4e3,
@@ -21466,7 +21487,7 @@ I need the response in the following format if a system design problem is detect
               role: "user",
               parts: [
                 {
-                  text: `You are an expert coding interview assistant. Provide a clear, optimal solution with detailed explanations for this problem:
+                  text: `Code naturally as if live-coding without AI: explicit for/while loops (no map/filter/reduce), no one-liners, full if-else, no unnecessary imports, manual iteration (no enumerate/zip/comprehensions), verbose step-by-step.
 
 ${promptText}`
                 }
@@ -21499,17 +21520,20 @@ ${promptText}`
       }
       const codeMatch = responseContent.match(/```(?:\w+)?\s*([\s\S]*?)```/);
       const code = codeMatch ? codeMatch[1].trim() : responseContent;
-      const thoughtsRegex = /(?:Thoughts:|Key Insights:|Reasoning:|Approach:)([\s\S]*?)(?:Time complexity:|$)/i;
+      const thoughtsRegex = /(?:My Thoughts|Thoughts:|Key Insights:|Reasoning:|Approach:)[:\s]*([\s\S]*?)(?:(?:\n\s*\d+\.)|Time complexity:|Space complexity:|$)/i;
       const thoughtsMatch = responseContent.match(thoughtsRegex);
       let thoughts = [];
       if (thoughtsMatch && thoughtsMatch[1]) {
-        const bulletPoints = thoughtsMatch[1].match(/(?:^|\n)\s*(?:[-*•]|\d+\.)\s*(.*)/g);
+        const bulletPoints = thoughtsMatch[1].match(/(?:^|\n)\s*(?:[-*•]|\d+\.|\-\s)\s*(.+?)(?=\n\s*(?:[-*•]|\d+\.|\-\s)|$)/gs);
         if (bulletPoints) {
-          thoughts = bulletPoints.map(
-            (point) => point.replace(/^\s*(?:[-*•]|\d+\.)\s*/, "").trim()
-          ).filter(Boolean);
-        } else {
-          thoughts = thoughtsMatch[1].split("\n").map((line) => line.trim()).filter(Boolean);
+          thoughts = bulletPoints.map((point) => {
+            let cleaned = point.replace(/^\s*(?:[-*•]|\d+\.|\-\s)\s*/, "").trim();
+            cleaned = cleaned.replace(/\n+/g, " ").trim();
+            return cleaned;
+          }).filter(Boolean);
+        }
+        if (thoughts.length === 0) {
+          thoughts = thoughtsMatch[1].split("\n").map((line) => line.trim()).filter((line) => line.length > 0 && !line.match(/^(Time|Space) complexity:/i));
         }
       }
       const timeComplexityPattern = /Time complexity:?\s*O\([^)]+\)[^.]*.(?:[^.]*\.|$)/i;
@@ -21582,23 +21606,18 @@ ${promptText}`
         const messages = [
           {
             role: "system",
-            content: `You are a coding interview assistant helping debug and improve solutions. Analyze these screenshots which include either error messages, incorrect outputs, follow-up questions or test cases, and provide detailed debugging help. If class structrue is followed then include unit tests as well
-
-Your response MUST follow this exact structure with these section headers (use ### for headers):
+            content: `Debug assistant. Analyze screenshots (errors/outputs/tests). Structure:
 ### Key Points
-- Summary bullet points of the changes made 
+- Summary bullets
 
-include code Implementation using traditional loop structures and variable assignments, avoiding single-line shortcuts , use proper markdown code blocks with language specification (e.g. \`\`\`java).`
+Code in markdown blocks. Style: explicit loops (no map/filter), no one-liners, full if-else, no unnecessary imports, manual iteration (no enumerate/comprehensions), verbose.`
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `I'm solving this coding problem: "${problemInfo.problem_statement}" in ${language}. I need help with debugging or improving my solution. Here are screenshots of my code, the errors or test cases. Please provide a detailed analysis with:
-1. Summary bullet points of the changes made 
-2. Code implementation with proper markdown code blocks
-`
+                text: `Problem: "${problemInfo.problem_statement}" (${language}). Debug/improve with: 1) Summary bullets 2) Code in markdown`
               },
               ...imageDataList.map((data) => ({
                 type: "image_url",
@@ -21628,29 +21647,16 @@ include code Implementation using traditional loop structures and variable assig
           };
         }
         try {
-          const debugPrompt = `
-You are a coding interview assistant helping debug and improve solutions. Analyze these screenshots which include either error messages, incorrect outputs, or test cases, and provide detailed debugging help.
+          const debugPrompt = `Problem: "${problemInfo.problem_statement}" (${language}). Analyze screenshots for debugging.
 
-I'm solving this coding problem: "${problemInfo.problem_statement}" in ${language}. I need help with debugging or improving my solution.
-
-YOUR RESPONSE MUST FOLLOW THIS EXACT STRUCTURE WITH THESE SECTION HEADERS:
+Structure:
 ### Issues Identified
-- List each issue as a bullet point with clear explanation
-
 ### Specific Improvements and Corrections
-- List specific code changes needed as bullet points
-
 ### Optimizations
-- List any performance optimizations if applicable
-
 ### Explanation of Changes Needed
-Here provide a clear explanation of why the changes are needed
-
 ### Key Points
-- Summary bullet points of the most important takeaways
 
-If you include code examples, use proper markdown code blocks with language specification (e.g. \`\`\`java).
-`;
+Code in markdown (e.g. \`\`\`java). Style: explicit loops (no map/filter), no one-liners, full if-else, no unnecessary imports, manual iteration (no enumerate/comprehensions), verbose.`;
           const geminiMessages = [
             {
               role: "user",
@@ -42747,11 +42753,12 @@ async function createWindow() {
   state.screenHeight = workArea.height;
   state.step = 60;
   state.currentY = 50;
+  const windowDimensions = configHelper.getWindowDimensions();
   const windowSettings = {
-    width: 800,
-    height: 600,
-    minWidth: 750,
-    minHeight: 550,
+    width: windowDimensions.width,
+    height: windowDimensions.height,
+    minWidth: 800,
+    minHeight: 600,
     x: state.currentX,
     y: 50,
     alwaysOnTop: true,
@@ -43164,4 +43171,4 @@ exports.showMainWindow = showMainWindow;
 exports.state = state;
 exports.takeScreenshot = takeScreenshot;
 exports.toggleMainWindow = toggleMainWindow;
-//# sourceMappingURL=main-Dz8W9oGP.js.map
+//# sourceMappingURL=main-BnoqCB5b.js.map
