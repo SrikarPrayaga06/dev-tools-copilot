@@ -30,7 +30,10 @@ class ShortcutsHelper {
         }
     }
     registerGlobalShortcuts() {
-        electron_1.globalShortcut.register("CommandOrControl+H", async () => {
+        // Unregister all shortcuts first to avoid conflicts
+        electron_1.globalShortcut.unregisterAll();
+        // Register screenshot shortcut with error handling
+        const screenshotShortcut = electron_1.globalShortcut.register("CommandOrControl+H", async () => {
             const mainWindow = this.deps.getMainWindow();
             if (mainWindow) {
                 console.log("Taking screenshot...");
@@ -47,9 +50,31 @@ class ShortcutsHelper {
                 }
             }
         });
-        electron_1.globalShortcut.register("CommandOrControl+Enter", async () => {
-            await this.deps.processingHelper?.processScreenshots();
+        if (!screenshotShortcut) {
+            console.error("Failed to register CommandOrControl+H shortcut");
+        }
+        // Register process shortcut with debouncing to prevent multiple triggers
+        let processTimeout = null;
+        const processShortcut = electron_1.globalShortcut.register("CommandOrControl+Return", async () => {
+            // Clear any pending process request
+            if (processTimeout) {
+                clearTimeout(processTimeout);
+            }
+            // Debounce to prevent multiple rapid triggers
+            processTimeout = setTimeout(async () => {
+                console.log("Command + Enter pressed. Processing screenshots...");
+                try {
+                    await this.deps.processingHelper?.processScreenshots();
+                }
+                catch (error) {
+                    console.error("Error processing screenshots:", error);
+                }
+                processTimeout = null;
+            }, 100);
         });
+        if (!processShortcut) {
+            console.error("Failed to register CommandOrControl+Return shortcut");
+        }
         electron_1.globalShortcut.register("CommandOrControl+R", () => {
             console.log("Command + R pressed. Canceling requests and resetting queues...");
             // Cancel ongoing API requests

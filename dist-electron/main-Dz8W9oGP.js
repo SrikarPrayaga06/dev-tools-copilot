@@ -6688,7 +6688,7 @@ class MultipartBody {
 }
 let fileFromPathWarned = false;
 async function fileFromPath(path2, ...args) {
-  const { fileFromPath: _fileFromPath } = await Promise.resolve().then(() => require("./fileFromPath-CBNPd70U.js"));
+  const { fileFromPath: _fileFromPath } = await Promise.resolve().then(() => require("./fileFromPath-CapyT0Za.js"));
   if (!fileFromPathWarned) {
     console.warn(`fileFromPath is deprecated; use fs.createReadStream(${JSON.stringify(path2)}) instead`);
     fileFromPathWarned = true;
@@ -25645,7 +25645,8 @@ class ShortcutsHelper {
     }
   }
   registerGlobalShortcuts() {
-    require$$1$2.globalShortcut.register("CommandOrControl+H", async () => {
+    require$$1$2.globalShortcut.unregisterAll();
+    const screenshotShortcut = require$$1$2.globalShortcut.register("CommandOrControl+H", async () => {
       const mainWindow = this.deps.getMainWindow();
       if (mainWindow) {
         console.log("Taking screenshot...");
@@ -25661,10 +25662,28 @@ class ShortcutsHelper {
         }
       }
     });
-    require$$1$2.globalShortcut.register("CommandOrControl+Enter", async () => {
-      var _a2;
-      await ((_a2 = this.deps.processingHelper) == null ? void 0 : _a2.processScreenshots());
+    if (!screenshotShortcut) {
+      console.error("Failed to register CommandOrControl+H shortcut");
+    }
+    let processTimeout = null;
+    const processShortcut = require$$1$2.globalShortcut.register("CommandOrControl+Return", async () => {
+      if (processTimeout) {
+        clearTimeout(processTimeout);
+      }
+      processTimeout = setTimeout(async () => {
+        var _a2;
+        console.log("Command + Enter pressed. Processing screenshots...");
+        try {
+          await ((_a2 = this.deps.processingHelper) == null ? void 0 : _a2.processScreenshots());
+        } catch (error2) {
+          console.error("Error processing screenshots:", error2);
+        }
+        processTimeout = null;
+      }, 100);
     });
+    if (!processShortcut) {
+      console.error("Failed to register CommandOrControl+Return shortcut");
+    }
     require$$1$2.globalShortcut.register("CommandOrControl+R", () => {
       var _a2;
       console.log(
@@ -42751,6 +42770,8 @@ async function createWindow() {
     // Start with full opacity
     backgroundColor: "#00000000",
     focusable: true,
+    acceptFirstMouse: true,
+    // Accept mouse events immediately
     skipTaskbar: true,
     type: "panel",
     paintWhenInitiallyHidden: true,
@@ -43143,4 +43164,4 @@ exports.showMainWindow = showMainWindow;
 exports.state = state;
 exports.takeScreenshot = takeScreenshot;
 exports.toggleMainWindow = toggleMainWindow;
-//# sourceMappingURL=main-altaxKCT.js.map
+//# sourceMappingURL=main-Dz8W9oGP.js.map

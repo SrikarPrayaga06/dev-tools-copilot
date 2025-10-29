@@ -35,7 +35,11 @@ export class ShortcutsHelper {
   }
 
   public registerGlobalShortcuts(): void {
-    globalShortcut.register("CommandOrControl+H", async () => {
+    // Unregister all shortcuts first to avoid conflicts
+    globalShortcut.unregisterAll();
+    
+    // Register screenshot shortcut with error handling
+    const screenshotShortcut = globalShortcut.register("CommandOrControl+H", async () => {
       const mainWindow = this.deps.getMainWindow()
       if (mainWindow) {
         console.log("Taking screenshot...")
@@ -51,10 +55,34 @@ export class ShortcutsHelper {
         }
       }
     })
+    
+    if (!screenshotShortcut) {
+      console.error("Failed to register CommandOrControl+H shortcut")
+    }
 
-    globalShortcut.register("CommandOrControl+Enter", async () => {
-      await this.deps.processingHelper?.processScreenshots()
+    // Register process shortcut with debouncing to prevent multiple triggers
+    let processTimeout: NodeJS.Timeout | null = null;
+    const processShortcut = globalShortcut.register("CommandOrControl+Return", async () => {
+      // Clear any pending process request
+      if (processTimeout) {
+        clearTimeout(processTimeout);
+      }
+      
+      // Debounce to prevent multiple rapid triggers
+      processTimeout = setTimeout(async () => {
+        console.log("Command + Enter pressed. Processing screenshots...")
+        try {
+          await this.deps.processingHelper?.processScreenshots()
+        } catch (error) {
+          console.error("Error processing screenshots:", error)
+        }
+        processTimeout = null;
+      }, 100);
     })
+    
+    if (!processShortcut) {
+      console.error("Failed to register CommandOrControl+Return shortcut")
+    }
 
     globalShortcut.register("CommandOrControl+R", () => {
       console.log(

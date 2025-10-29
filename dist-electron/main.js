@@ -241,6 +241,7 @@ async function createWindow() {
         opacity: 1.0, // Start with full opacity
         backgroundColor: "#00000000",
         focusable: true,
+        acceptFirstMouse: true, // Accept mouse events immediately
         skipTaskbar: true,
         type: "panel",
         paintWhenInitiallyHidden: true,
