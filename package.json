@@ -14,7 +14,7 @@
   },
   "build": {
     "appId": "com.chunginlee.interviewcoder",
-    "productName": "Interview Coder",
+    "productName": "dev-tools-copilot",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
@@ -116,7 +116,7 @@
     "technical interview",
     "tool"
   ],
-  "author": "Interview Coder Contributors",
+  "author": "dev-tools-copilot Contributors",
   "license": "AGPL-3.0-or-later",
   "description": "An invisible desktop application to help you pass your technical interviews.",
   "dependencies": {

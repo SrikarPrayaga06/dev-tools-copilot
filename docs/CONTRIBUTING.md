@@ -1,6 +1,6 @@
-# Contributing to Interview Coder - Unlocked Edition
+# Contributing to dev-tools-copilot - Unlocked Edition
 
-First off, thank you for considering contributing to Interview Coder! We created this tool to help the community, and we welcome improvements that make it better for everyone.
+First off, thank you for considering contributing to dev-tools-copilot! We created this tool to help the community, and we welcome improvements that make it better for everyone.
 
 ## Our Community Values
 
@@ -54,4 +54,4 @@ Remember that this project is licensed under the GNU Affero General Public Licen
 - Help review other contributors' pull requests
 - Report bugs and issues clearly with steps to reproduce
 
-Thank you for helping make Interview Coder better for everyone!
+Thank you for helping make dev-tools-copilot better for everyone!
