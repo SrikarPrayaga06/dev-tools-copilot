@@ -9,6 +9,38 @@ import { initAutoUpdater } from "./autoUpdater"
 import { configHelper } from "./ConfigHelper"
 import * as dotenv from "dotenv"
 
+// Handle console write errors gracefully (prevents EIO errors when terminal is closed)
+process.stdout.on('error', (err) => {
+  // Silently ignore EPIPE and EIO errors
+  if (err.code === 'EPIPE' || err.code === 'EIO') {
+    return;
+  }
+  // Log other errors to a file
+  const logPath = path.join(app.getPath('logs'), 'error.log');
+  fs.appendFileSync(logPath, `[${new Date().toISOString()}] stdout error: ${err.message}\n`);
+});
+
+process.stderr.on('error', (err) => {
+  // Silently ignore EPIPE and EIO errors
+  if (err.code === 'EPIPE' || err.code === 'EIO') {
+    return;
+  }
+  // Log other errors to a file
+  const logPath = path.join(app.getPath('logs'), 'error.log');
+  fs.appendFileSync(logPath, `[${new Date().toISOString()}] stderr error: ${err.message}\n`);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  // Ignore EIO errors from console.log after terminal is closed
+  if (error.message.includes('write EIO') || error.message.includes('EPIPE')) {
+    return;
+  }
+  // Log other uncaught exceptions
+  const logPath = path.join(app.getPath('logs'), 'error.log');
+  fs.appendFileSync(logPath, `[${new Date().toISOString()}] Uncaught Exception: ${error.stack}\n`);
+});
+
 // Constants
 const isDev = process.env.NODE_ENV === "development"
 

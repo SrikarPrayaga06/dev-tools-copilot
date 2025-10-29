@@ -6688,7 +6688,7 @@ class MultipartBody {
 }
 let fileFromPathWarned = false;
 async function fileFromPath(path2, ...args) {
-  const { fileFromPath: _fileFromPath } = await Promise.resolve().then(() => require("./fileFromPath-DQVnwbxe.js"));
+  const { fileFromPath: _fileFromPath } = await Promise.resolve().then(() => require("./fileFromPath-CBNPd70U.js"));
   if (!fileFromPathWarned) {
     console.warn(`fileFromPath is deprecated; use fs.createReadStream(${JSON.stringify(path2)}) instead`);
     fileFromPathWarned = true;
@@ -11939,12 +11939,18 @@ class ConfigHelper extends require$$0$2.EventEmitter {
       language: "python",
       opacity: 1
     };
-    try {
-      this.configPath = path.join(require$$1$2.app.getPath("userData"), "config.json");
-      console.log("Config path:", this.configPath);
-    } catch (err) {
-      console.warn("Could not access user data path, using fallback");
-      this.configPath = path.join(process.cwd(), "config.json");
+    const projectConfigPath = path.join(process.cwd(), "config.json");
+    if (fs$1.existsSync(projectConfigPath)) {
+      this.configPath = projectConfigPath;
+      console.log("Using project config path:", this.configPath);
+    } else {
+      try {
+        this.configPath = path.join(require$$1$2.app.getPath("userData"), "config.json");
+        console.log("Using user data config path:", this.configPath);
+      } catch (err) {
+        console.warn("Could not access user data path, using fallback");
+        this.configPath = path.join(process.cwd(), "config.json");
+      }
     }
     this.ensureConfigExists();
   }
@@ -42581,6 +42587,30 @@ function requireMain() {
   return main.exports;
 }
 var mainExports = requireMain();
+process.stdout.on("error", (err) => {
+  if (err.code === "EPIPE" || err.code === "EIO") {
+    return;
+  }
+  const logPath = require$$1$3.join(require$$1$2.app.getPath("logs"), "error.log");
+  require$$0$3.appendFileSync(logPath, `[${(/* @__PURE__ */ new Date()).toISOString()}] stdout error: ${err.message}
+`);
+});
+process.stderr.on("error", (err) => {
+  if (err.code === "EPIPE" || err.code === "EIO") {
+    return;
+  }
+  const logPath = require$$1$3.join(require$$1$2.app.getPath("logs"), "error.log");
+  require$$0$3.appendFileSync(logPath, `[${(/* @__PURE__ */ new Date()).toISOString()}] stderr error: ${err.message}
+`);
+});
+process.on("uncaughtException", (error2) => {
+  if (error2.message.includes("write EIO") || error2.message.includes("EPIPE")) {
+    return;
+  }
+  const logPath = require$$1$3.join(require$$1$2.app.getPath("logs"), "error.log");
+  require$$0$3.appendFileSync(logPath, `[${(/* @__PURE__ */ new Date()).toISOString()}] Uncaught Exception: ${error2.stack}
+`);
+});
 const isDev = process.env.NODE_ENV === "development";
 const state = {
   // Window management properties
@@ -43113,4 +43143,4 @@ exports.showMainWindow = showMainWindow;
 exports.state = state;
 exports.takeScreenshot = takeScreenshot;
 exports.toggleMainWindow = toggleMainWindow;
-//# sourceMappingURL=main-B0EuiQm_.js.map
+//# sourceMappingURL=main-altaxKCT.js.map

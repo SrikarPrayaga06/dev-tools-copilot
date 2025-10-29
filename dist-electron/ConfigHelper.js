@@ -22,14 +22,23 @@ class ConfigHelper extends events_1.EventEmitter {
             language: "python",
             opacity: 1.0
         };
-        // Use the app's user data directory to store the config
-        try {
-            this.configPath = node_path_1.default.join(electron_1.app.getPath('userData'), 'config.json');
-            console.log('Config path:', this.configPath);
+        // Check if config.json exists in the project root first (for development)
+        const projectConfigPath = node_path_1.default.join(process.cwd(), 'config.json');
+        if (node_fs_1.default.existsSync(projectConfigPath)) {
+            // Use project config.json if it exists
+            this.configPath = projectConfigPath;
+            console.log('Using project config path:', this.configPath);
         }
-        catch (err) {
-            console.warn('Could not access user data path, using fallback');
-            this.configPath = node_path_1.default.join(process.cwd(), 'config.json');
+        else {
+            // Fall back to user data directory
+            try {
+                this.configPath = node_path_1.default.join(electron_1.app.getPath('userData'), 'config.json');
+                console.log('Using user data config path:', this.configPath);
+            }
+            catch (err) {
+                console.warn('Could not access user data path, using fallback');
+                this.configPath = node_path_1.default.join(process.cwd(), 'config.json');
+            }
         }
         // Ensure the initial config file exists
         this.ensureConfigExists();

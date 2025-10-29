@@ -29,13 +29,22 @@ export class ConfigHelper extends EventEmitter {
 
   constructor() {
     super();
-    // Use the app's user data directory to store the config
-    try {
-      this.configPath = path.join(app.getPath('userData'), 'config.json');
-      console.log('Config path:', this.configPath);
-    } catch (err) {
-      console.warn('Could not access user data path, using fallback');
-      this.configPath = path.join(process.cwd(), 'config.json');
+    // Check if config.json exists in the project root first (for development)
+    const projectConfigPath = path.join(process.cwd(), 'config.json');
+    
+    if (fs.existsSync(projectConfigPath)) {
+      // Use project config.json if it exists
+      this.configPath = projectConfigPath;
+      console.log('Using project config path:', this.configPath);
+    } else {
+      // Fall back to user data directory
+      try {
+        this.configPath = path.join(app.getPath('userData'), 'config.json');
+        console.log('Using user data config path:', this.configPath);
+      } catch (err) {
+        console.warn('Could not access user data path, using fallback');
+        this.configPath = path.join(process.cwd(), 'config.json');
+      }
     }
     
     // Ensure the initial config file exists

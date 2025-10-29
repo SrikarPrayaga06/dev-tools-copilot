@@ -1,0 +1,9 @@
+{
+  "apiKey": "your-azure-openai-or-gemini-api-key-here",
+  "apiProvider": "openai",
+  "extractionModel": "gpt-4o",
+  "solutionModel": "gpt-4o",
+  "debuggingModel": "gpt-4o",
+  "language": "python",
+  "opacity": 1.0
+}

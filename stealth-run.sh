@@ -37,13 +37,38 @@ npm run build
 echo "=== Step 4: Launching in stealth mode... ==="
 echo "Remember: Cmd+B to make it visible, Cmd+[ and Cmd+] to adjust opacity!"
 echo
-export NODE_ENV=production
-npx electron ./dist-electron/main.js &
 
-echo "App is now running invisibly! Press Cmd+B to make it visible."
+# Create logs directory
+mkdir -p ~/Library/Logs/interview-coder-v1
+
+# Set up log file with timestamp
+LOG_FILE=~/Library/Logs/interview-coder-v1/app_$(date +%Y%m%d_%H%M%S).log
+
+echo "Logs will be saved to: $LOG_FILE"
+echo
+
+export NODE_ENV=production
+
+# Run the app detached from terminal, redirect output to log file
+nohup npx electron ./dist-electron/main.js > "$LOG_FILE" 2>&1 &
+
+# Get the PID
+APP_PID=$!
+
+echo "App is now running invisibly! (PID: $APP_PID)"
+echo "Press Cmd+B to make it visible."
+echo
+echo "Logs are being saved to:"
+echo "$LOG_FILE"
+echo
+echo "You can now safely close this terminal window."
+echo
+echo "To stop the app:"
+echo "- Press Cmd+Q while the app is active, or"
+echo "- Run: kill $APP_PID"
 echo
 echo "If you encounter any issues:"
-echo "1. Make sure you've installed dependencies with 'npm install'"
-echo "2. Make sure this script has execute permissions (chmod +x stealth-run.sh)"
+echo "1. Check the log file for errors"
+echo "2. Make sure you've installed dependencies with 'npm install'"
 echo "3. Press Cmd+B multiple times to toggle visibility"
 echo "4. Check Activity Monitor to verify the app is running"
