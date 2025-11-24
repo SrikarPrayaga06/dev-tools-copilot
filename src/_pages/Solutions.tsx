@@ -3,6 +3,9 @@ import React, { useState, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
+import ReactMarkdown from "react-markdown"
+import rehypeRaw from "rehype-raw"
+import mermaid from "mermaid"
 
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
 
@@ -11,6 +14,78 @@ import SolutionCommands from "../components/Solutions/SolutionCommands"
 import Debug from "./Debug"
 import { useToast } from "../contexts/toast"
 import { COMMAND_KEY } from "../utils/platform"
+
+// Initialize Mermaid
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  securityLevel: 'loose',
+  fontFamily: 'monospace',
+  themeVariables: {
+    primaryColor: '#3b82f6',
+    primaryTextColor: '#fff',
+    primaryBorderColor: '#60a5fa',
+    lineColor: '#94a3b8',
+    secondaryColor: '#8b5cf6',
+    tertiaryColor: '#10b981',
+    background: '#1e293b',
+    mainBkg: '#1e293b',
+    textColor: '#e2e8f0',
+  }
+})
+
+// Mermaid component for rendering diagrams
+const MermaidDiagram = ({ chart }: { chart: string }) => {
+  const ref = useRef<HTMLDivElement>(null)
+  const [svg, setSvg] = useState<string>('')
+  const [error, setError] = useState<string>('')
+  
+  useEffect(() => {
+    const renderDiagram = async () => {
+      if (ref.current && chart) {
+        try {
+          // Clean up the chart to fix common syntax issues
+          let cleanedChart = chart
+            // Remove trailing semicolons that cause issues
+            .replace(/;[\s]*$/gm, '')
+            // Fix invalid slash notation in node shapes [/text/] to [text] but NOT in arrows
+            .replace(/([A-Za-z0-9_]+)\[\/([^\]]+)\/\]/g, '$1[$2]')
+            // Ensure proper spacing
+            .trim()
+          
+          console.log('Cleaned Mermaid chart:', cleanedChart)
+          
+          const id = 'mermaid-diagram-' + Math.random().toString(36).substr(2, 9)
+          const { svg: renderedSvg } = await mermaid.render(id, cleanedChart)
+          setSvg(renderedSvg)
+          setError('')
+        } catch (error: any) {
+          console.error('Error rendering mermaid diagram:', error)
+          const errorMsg = error?.message || String(error)
+          setError(errorMsg)
+          // Show the raw mermaid code as fallback
+          setSvg(`<div style="color: #ef4444; padding: 1rem; background: rgba(239, 68, 68, 0.1); border-radius: 0.5rem;">
+            <strong>Diagram Rendering Error:</strong>
+            <pre style="margin-top: 0.5rem; font-size: 0.875rem; overflow-x: auto; color: #fca5a5;">${errorMsg}</pre>
+            <details style="margin-top: 1rem;">
+              <summary style="cursor: pointer; color: #cbd5e1;">View Mermaid Code</summary>
+              <pre style="margin-top: 0.5rem; font-size: 0.75rem; overflow-x: auto; color: #94a3b8;">${chart}</pre>
+            </details>
+          </div>`)
+        }
+      }
+    }
+    renderDiagram()
+  }, [chart])
+  
+  return (
+    <div 
+      ref={ref} 
+      className="mermaid-container bg-white/5 p-4 rounded-md overflow-auto"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  )
+}
 
 export const ContentSection = ({
   title,
@@ -48,41 +123,110 @@ const SolutionSection = ({
   content: React.ReactNode
   isLoading: boolean
   currentLanguage: string
-}) => (
-  <div className="space-y-2">
-    <h2 className="text-[13px] font-medium text-white tracking-wide">
-      {title}
-    </h2>
-    {isLoading ? (
-      <div className="space-y-1.5">
-        <div className="mt-4 flex">
-          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
-            Loading solutions...
-          </p>
+}) => {
+  // Check if content contains mermaid diagrams or markdown
+  const contentStr = content as string
+  const hasMermaid = contentStr?.includes('```mermaid') || contentStr?.includes('mermaid')
+  const hasMarkdown = contentStr?.includes('##') || contentStr?.includes('###') || 
+                      contentStr?.includes('**') || contentStr?.includes('- ') || hasMermaid
+  
+  console.log('Content analysis:', { hasMermaid, hasMarkdown, contentPreview: contentStr?.substring(0, 200) })
+  
+  return (
+    <div className="space-y-2">
+      <h2 className="text-[13px] font-medium text-white tracking-wide">
+        {title}
+      </h2>
+      {isLoading ? (
+        <div className="space-y-1.5">
+          <div className="mt-4 flex">
+            <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+              Loading solutions...
+            </p>
+          </div>
         </div>
-      </div>
-    ) : (
-      <div className="w-full">
-        <SyntaxHighlighter
-          showLineNumbers
-          language={currentLanguage == "golang" ? "go" : currentLanguage}
-          style={dracula}
-          customStyle={{
-            maxWidth: "100%",
-            margin: 0,
-            padding: "1rem",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            backgroundColor: "rgba(22, 27, 34, 0.5)"
-          }}
-          wrapLongLines={true}
-        >
-          {content as string}
-        </SyntaxHighlighter>
-      </div>
-    )}
-  </div>
-)
+      ) : hasMarkdown ? (
+        <div className="w-full text-gray-100 prose prose-invert max-w-none">
+          <ReactMarkdown
+            rehypePlugins={[rehypeRaw]}
+            components={{
+              code({ node, inline, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '')
+                const codeString = String(children).replace(/\n$/, '')
+                
+                console.log('Code block detected:', { inline, className, language: match?.[1], codePreview: codeString.substring(0, 100) })
+                
+                // Handle mermaid diagrams
+                if (match && match[1] === 'mermaid') {
+                  console.log('Rendering mermaid diagram')
+                  return <MermaidDiagram chart={codeString} />
+                }
+                
+                // Handle other code blocks
+                if (!inline && match) {
+                  return (
+                    <SyntaxHighlighter
+                      showLineNumbers
+                      language={match[1] === "golang" ? "go" : match[1]}
+                      style={dracula}
+                      customStyle={{
+                        maxWidth: "100%",
+                        margin: 0,
+                        padding: "1rem",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-all",
+                        backgroundColor: "rgba(22, 27, 34, 0.5)"
+                      }}
+                      wrapLongLines={true}
+                      {...props}
+                    >
+                      {codeString}
+                    </SyntaxHighlighter>
+                  )
+                }
+                
+                // Inline code
+                return (
+                  <code className="bg-white/10 px-1 py-0.5 rounded text-sm" {...props}>
+                    {children}
+                  </code>
+                )
+              },
+              h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-4 text-white">{children}</h1>,
+              h2: ({ children }) => <h2 className="text-xl font-semibold mt-5 mb-3 text-white">{children}</h2>,
+              h3: ({ children }) => <h3 className="text-lg font-medium mt-4 mb-2 text-white">{children}</h3>,
+              p: ({ children }) => <p className="mb-3 text-gray-100 leading-relaxed">{children}</p>,
+              ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>,
+              li: ({ children }) => <li className="text-gray-100">{children}</li>,
+            }}
+          >
+            {contentStr}
+          </ReactMarkdown>
+        </div>
+      ) : (
+        <div className="w-full">
+          <SyntaxHighlighter
+            showLineNumbers
+            language={currentLanguage == "golang" ? "go" : currentLanguage}
+            style={dracula}
+            customStyle={{
+              maxWidth: "100%",
+              margin: 0,
+              padding: "1rem",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-all",
+              backgroundColor: "rgba(22, 27, 34, 0.5)"
+            }}
+            wrapLongLines={true}
+          >
+            {contentStr}
+          </SyntaxHighlighter>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export const ComplexitySection = ({
   timeComplexity,

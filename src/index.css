@@ -68,3 +68,40 @@ option {
   inset: -16px;
   opacity: 1;
 }
+
+/* Mermaid diagram styling */
+.mermaid-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-container .node rect,
+.mermaid-container .node circle,
+.mermaid-container .node ellipse,
+.mermaid-container .node polygon {
+  fill: rgba(59, 130, 246, 0.2) !important;
+  stroke: #3b82f6 !important;
+  stroke-width: 2px !important;
+}
+
+.mermaid-container .node .label {
+  color: #e2e8f0 !important;
+  fill: #e2e8f0 !important;
+}
+
+.mermaid-container .edgeLabel {
+  background-color: rgba(30, 41, 59, 0.9) !important;
+  color: #cbd5e1 !important;
+  fill: #cbd5e1 !important;
+}
+
+.mermaid-container .edgePath .path {
+  stroke: #60a5fa !important;
+  stroke-width: 2px !important;
+}
+
+.mermaid-container .cluster rect {
+  fill: rgba(139, 92, 246, 0.1) !important;
+  stroke: #8b5cf6 !important;
+  stroke-width: 1px !important;
+}

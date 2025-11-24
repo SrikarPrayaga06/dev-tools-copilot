@@ -391,14 +391,14 @@ class ProcessingHelper {
                 const messages = [
                     {
                         role: "system",
-                        content: "Extract coding problem from screenshot. Return JSON only: {problem_statement, constraints, example_input, example_output}"
+                        content: "Extract problem from screenshot. Return JSON only: {problem_statement, constraints, example_input, example_output, functional_requirements}. For coding problems, functional_requirements should be null. For system design, include array of key requirements."
                     },
                     {
                         role: "user",
                         content: [
                             {
                                 type: "text",
-                                text: `Language: ${language}. Extract problem as JSON.`
+                                text: `Language: ${language}. Extract problem as JSON. If this is a system design problem, include functional_requirements as an array.`
                             },
                             ...imageDataList.map(data => ({
                                 type: "image_url",
@@ -417,15 +417,19 @@ class ProcessingHelper {
                 // Parse the response
                 try {
                     const responseText = extractionResponse.choices[0].message.content;
+                    if (!responseText) {
+                        throw new Error("Empty response from API");
+                    }
                     // Handle when OpenAI might wrap the JSON in markdown code blocks
                     const jsonText = responseText.replace(/```json|```/g, '').trim();
                     problemInfo = JSON.parse(jsonText);
                 }
                 catch (error) {
                     console.error("Error parsing OpenAI response:", error);
+                    // Don't expose technical error details to UI
                     return {
                         success: false,
-                        error: "Failed to parse problem information. Please try again or use clearer screenshots."
+                        error: "Could not extract problem information from screenshots. Please ensure the screenshot clearly shows the problem statement."
                     };
                 }
             }
@@ -444,7 +448,7 @@ class ProcessingHelper {
                             role: "user",
                             parts: [
                                 {
-                                    text: `Language: ${language}. Extract problem from screenshots as JSON: {problem_statement, constraints, example_input, example_output}`
+                                    text: `Language: ${language}. Extract problem from screenshots as JSON: {problem_statement, constraints, example_input, example_output, functional_requirements}. For coding problems, functional_requirements should be null. For system design, include array of key requirements.`
                                 },
                                 ...imageDataList.map(data => ({
                                     inlineData: {
@@ -468,15 +472,25 @@ class ProcessingHelper {
                         throw new Error("Empty response from Gemini API");
                     }
                     const responseText = responseData.candidates[0].content.parts[0].text;
+                    if (!responseText) {
+                        throw new Error("Empty response from Gemini API");
+                    }
                     // Handle when Gemini might wrap the JSON in markdown code blocks
                     const jsonText = responseText.replace(/```json|```/g, '').trim();
-                    problemInfo = JSON.parse(jsonText);
+                    try {
+                        problemInfo = JSON.parse(jsonText);
+                    }
+                    catch (parseError) {
+                        console.error("JSON parse error:", parseError);
+                        throw new Error("Could not parse problem information from API response");
+                    }
                 }
                 catch (error) {
                     console.error("Error using Gemini API:", error);
+                    // Don't expose technical error details to UI
                     return {
                         success: false,
-                        error: "Failed to process with Gemini API. Please check your API key or try again later."
+                        error: "Could not extract problem information from screenshots. Please ensure the screenshot clearly shows the problem statement."
                     };
                 }
             }
@@ -562,28 +576,66 @@ class ProcessingHelper {
                 });
             }
             // Create prompt for solution generation
+            const functionalReqs = problemInfo.functional_requirements && Array.isArray(problemInfo.functional_requirements) && problemInfo.functional_requirements.length > 0
+                ? `\nFunctional Requirements:\n${problemInfo.functional_requirements.map((req, i) => `${i + 1}. ${req}`).join('\n')}`
+                : '';
             const promptText = `Problem: ${problemInfo.problem_statement}
-Constraints: ${problemInfo.constraints || "None"}
-Input: ${problemInfo.example_input || "N/A"}
-Output: ${problemInfo.example_output || "N/A"}
-Language: ${language}
+    Constraints: ${problemInfo.constraints || "None"}
+    Input: ${problemInfo.example_input || "N/A"}
+    Output: ${problemInfo.example_output || "N/A"}${functionalReqs}
+    Language: ${language}
 
-Provide:
-1. Code (clean ${language} implementation with inline comments explaining key steps and logic)
-2. My Thoughts (bullet points):
-   - First, restate the problem in my own words
-   - What the question is asking for
-   - High-level approach/strategy I'll use
-   - Key steps to implement the solution
-   - Any edge cases or special considerations
-3. Time complexity O(X) + 2-sentence explanation
-4. Space complexity O(X) + 2-sentence explanation
+    Determine if this is a Coding Problem or a System Design Problem.
+    Start your response with "TYPE: CODING" or "TYPE: SYSTEM DESIGN".
 
-For system design problems:
-1. Architecture overview
-2. Database schema
-3. API endpoints
-4. Scalability considerations`;
+    If CODING PROBLEM:
+    Provide:
+    1. Code (clean ${language} implementation with inline comments explaining key steps and logic)
+    2. My Thoughts (bullet points):
+       - Summary: First, restate the problem in my own words
+       - What the question is asking for
+       - High-level approach/strategy I'll use
+       - Key steps: Key steps to implement the solution as if you explain to interviewer before coding out solution
+       - edge cases: Any edge cases or special considerations
+    3. Time complexity O(X) + 2-sentence explanation
+    4. Space complexity O(X) + 2-sentence explanation
+
+    If SYSTEM DESIGN PROBLEM:
+    Provide a comprehensive technical design document in Markdown format:
+    1. Functional/Non-functional Requirements Summary: Restate and clarify the key functional/non functional requirements from the problem.
+    2. Detailed Architecture Diagram built to scale for the  Functional/Non-functional Requirements as a Mermaid flowchart with comprehensive annotations and problem-specific service names. CRITICAL requirements:
+       - Start with: graph TB (top-to-bottom) or graph LR (left-to-right)
+       - Use simple alphanumeric node IDs (no spaces, no special chars like underscores for node IDs)
+       - Format: NodeID[Display Label] -->|annotation| OtherNodeID[Other Label]
+       - IMPORTANT: Use domain-specific service names based on the problem (e.g., for Twitter: TweetService, TimelineService, UserService; for Uber: RideMatchingService, LocationService, PaymentService; NOT generic names like API1, API2, Service1)
+       - IMPORTANT: Specify database/storage types in labels (e.g., PostgreSQL, MySQL, MongoDB, Cassandra, Redis, S3, DynamoDB)
+       - Include annotations on arrows showing: protocols (HTTP/gRPC/WebSocket), data formats (JSON/Protobuf), message types, API endpoints
+       - Show scalability elements: load balancers, caching layers, message queues, CDNs
+       - Use ONLY these node shapes: 
+         * [] for regular services/components
+         * [()] for databases/storage systems
+         * {{}} for message queues
+       - NO semicolons, NO pipes in labels, NO special characters in node IDs, NO slashes in shape notation
+       - Example with problem-specific names and storage types (Twitter-like system):
+         Client[Mobile App] -->|HTTPS/POST /tweet| LB[Load Balancer]
+         LB -->|Route| TweetService[Tweet Service]
+         TweetService -->|Write| TweetDB[(PostgreSQL - Tweets)]
+         TweetService -->|Cache| UserCache[Redis - User Cache]
+         TweetService -->|Upload Media| BlobStore[(S3 - Media Storage)]
+         TweetService -->|Publish| FanoutQueue{{Kafka - Fanout Queue}}
+         FanoutQueue -->|Consume| TimelineService[Timeline Service]
+         TimelineService -->|Write| TimelineDB[(Cassandra - Timelines)]
+         CDN[CloudFront CDN] -->|Serve Media| Client
+    3. Define core entities : List key data objects (e.g., User, Tweet, Follow) that represent system concepts and evolve as the design progresses.
+    4. Explain data flow : Outline the main sequence of actions or processing steps the system performs from input to output, using a simple list if your system involves multi-stage processing or data transformation.
+    5. Design the API : Establish main endpoints or interfaces based on functional requirements, typically using REST. Keep security strong by authenticating requests properly.
+    6. DB Design : For each database/storage system identified in architecture, specify:
+       - Storage type (SQL: PostgreSQL/MySQL, NoSQL: MongoDB/Cassandra/DynamoDB, Cache: Redis/Memcached, Blob: S3/Azure Blob)
+       - Tables/Collections with attributes, primary keys, foreign keys, and indexes
+       - Justification for the storage choice based on data access patterns
+    7. Run deep dives: Optimize for non-functional requirements, address bottlenecks, be specific about shard keys and scale the design as needed (e.g., caching strategies with TTLs, database sharding with shard keys, replication strategies, fanout patterns, rate limiting, CDN usage, etc).
+    8. Q/a :Think of common deep dive questions and answer in q/a format.
+    DO NOT include "My Thoughts", "Time complexity", or "Space complexity" sections for system design.`;
             let responseContent;
             if (config.apiProvider === "openai") {
                 // OpenAI processing
@@ -647,56 +699,69 @@ For system design problems:
                     };
                 }
             }
-            // Extract parts from the response
-            const codeMatch = responseContent.match(/```(?:\w+)?\s*([\s\S]*?)```/);
-            const code = codeMatch ? codeMatch[1].trim() : responseContent;
-            // Extract thoughts, looking for "My Thoughts" section with bullet points
-            const thoughtsRegex = /(?:My Thoughts|Thoughts:|Key Insights:|Reasoning:|Approach:)[:\s]*([\s\S]*?)(?:(?:\n\s*\d+\.)|Time complexity:|Space complexity:|$)/i;
-            const thoughtsMatch = responseContent.match(thoughtsRegex);
-            let thoughts = [];
-            if (thoughtsMatch && thoughtsMatch[1]) {
-                // Extract bullet points or numbered items - more aggressive matching
-                const bulletPoints = thoughtsMatch[1].match(/(?:^|\n)\s*(?:[-*•]|\d+\.|\-\s)\s*(.+?)(?=\n\s*(?:[-*•]|\d+\.|\-\s)|$)/gs);
-                if (bulletPoints) {
-                    thoughts = bulletPoints.map(point => {
-                        // Clean up the bullet point
-                        let cleaned = point.replace(/^\s*(?:[-*•]|\d+\.|\-\s)\s*/, '').trim();
-                        // Remove newlines within a bullet point and replace with spaces
-                        cleaned = cleaned.replace(/\n+/g, ' ').trim();
-                        return cleaned;
-                    }).filter(Boolean);
-                }
-                // If still no bullet points found, try splitting by newlines
-                if (thoughts.length === 0) {
-                    thoughts = thoughtsMatch[1].split('\n')
-                        .map(line => line.trim())
-                        .filter(line => line.length > 0 && !line.match(/^(Time|Space) complexity:/i));
-                }
+            // Check for response type
+            const isSystemDesign = responseContent.includes("TYPE: SYSTEM DESIGN");
+            let code, thoughts, timeComplexity, spaceComplexity;
+            if (isSystemDesign) {
+                // For system design, the "code" is the entire markdown response minus the type header
+                code = responseContent.replace(/TYPE: (SYSTEM DESIGN|CODING)/i, "").trim();
+                thoughts = [];
+                timeComplexity = "N/A - System Design";
+                spaceComplexity = "N/A - System Design";
             }
-            // Extract complexity information
-            // Extract time and space complexity from response
-            const timeComplexityPattern = /Time complexity:?\s*O\([^)]+\)[^.]*.(?:[^.]*\.|$)/i;
-            const spaceComplexityPattern = /Space complexity:?\s*O\([^)]+\)[^.]*.(?:[^.]*\.|$)/i;
-            // Set default complexity explanations
-            let timeComplexity = "O(n) - Assuming linear time complexity. Please see the solution explanation for more details.";
-            let spaceComplexity = "O(n) - Assuming linear space complexity. Please see the solution explanation for more details.";
-            // Extract time complexity from response
-            const timeMatch = responseContent.match(timeComplexityPattern);
-            if (timeMatch && timeMatch[0]) {
-                timeComplexity = timeMatch[0].trim();
-                // Remove the "Time complexity:" prefix if present
-                timeComplexity = timeComplexity.replace(/^Time complexity:\s*/i, '');
-            }
-            // Extract space complexity from response
-            const spaceMatch = responseContent.match(spaceComplexityPattern);
-            if (spaceMatch && spaceMatch[0]) {
-                spaceComplexity = spaceMatch[0].trim();
-                // Remove the "Space complexity:" prefix if present
-                spaceComplexity = spaceComplexity.replace(/^Space complexity:\s*/i, '');
+            else {
+                // Remove TYPE: CODING if present
+                const cleanContent = responseContent.replace(/TYPE: (SYSTEM DESIGN|CODING)/i, "").trim();
+                // Extract parts from the response
+                const codeMatch = cleanContent.match(/```(?:\w+)?\s*([\s\S]*?)```/);
+                code = codeMatch ? codeMatch[1].trim() : cleanContent;
+                // Extract thoughts, looking for "My Thoughts" section with bullet points
+                const thoughtsRegex = /(?:My Thoughts|Thoughts:|Key Insights:|Reasoning:|Approach:)[:\s]*([\s\S]*?)(?:(?:\n\s*\d+\.)|Time complexity:|Space complexity:|$)/i;
+                const thoughtsMatch = cleanContent.match(thoughtsRegex);
+                thoughts = [];
+                if (thoughtsMatch && thoughtsMatch[1]) {
+                    // Extract bullet points or numbered items - more aggressive matching
+                    const bulletPoints = thoughtsMatch[1].match(/(?:^|\n)\s*(?:[-*•]|\d+\.|\-\s)\s*(.+?)(?=\n\s*(?:[-*•]|\d+\.|\-\s)|$)/gs);
+                    if (bulletPoints) {
+                        thoughts = bulletPoints.map(point => {
+                            // Clean up the bullet point
+                            let cleaned = point.replace(/^\s*(?:[-*•]|\d+\.|\-\s)\s*/, '').trim();
+                            // Remove newlines within a bullet point and replace with spaces
+                            cleaned = cleaned.replace(/\n+/g, ' ').trim();
+                            return cleaned;
+                        }).filter(Boolean);
+                    }
+                    // If still no bullet points found, try splitting by newlines
+                    if (thoughts.length === 0) {
+                        thoughts = thoughtsMatch[1].split('\n')
+                            .map(line => line.trim())
+                            .filter(line => line.length > 0 && !line.match(/^(Time|Space) complexity:/i));
+                    }
+                }
+                // Extract complexity information
+                // Extract time and space complexity from response with improved regex to capture full explanations
+                // This pattern captures everything from "O(...)" until the next section or end of content
+                const timeComplexityPattern = /(?:Time\s*complexity|Time\s*Complexity)[\s\W]*(O\s*\([^)]+\)[^\n]*(?:\n(?!(?:Space|Time|\d+\.|###|##|\*\*)).*)*)/i;
+                const spaceComplexityPattern = /(?:Space\s*complexity|Space\s*Complexity)[\s\W]*(O\s*\([^)]+\)[^\n]*(?:\n(?!(?:Time|Space|\d+\.|###|##|\*\*)).*)*)/i;
+                // Set default complexity explanations
+                timeComplexity = "O(n) - Assuming linear time complexity. Please see the solution explanation for more details.";
+                spaceComplexity = "O(n) - Assuming linear space complexity. Please see the solution explanation for more details.";
+                // Extract time complexity from response
+                const timeMatch = cleanContent.match(timeComplexityPattern);
+                if (timeMatch && timeMatch[1]) {
+                    // Clean up the extracted complexity, removing extra whitespace and newlines
+                    timeComplexity = timeMatch[1].trim().replace(/\s+/g, ' ');
+                }
+                // Extract space complexity from response
+                const spaceMatch = cleanContent.match(spaceComplexityPattern);
+                if (spaceMatch && spaceMatch[1]) {
+                    // Clean up the extracted complexity, removing extra whitespace and newlines
+                    spaceComplexity = spaceMatch[1].trim().replace(/\s+/g, ' ');
+                }
             }
             const formattedResponse = {
                 code: code,
-                thoughts: thoughts.length > 0 ? thoughts : ["Solution approach based on efficiency and readability"],
+                thoughts: isSystemDesign ? [] : (thoughts && thoughts.length > 0 ? thoughts : ["Solution approach based on efficiency and readability"]),
                 time_complexity: timeComplexity,
                 space_complexity: spaceComplexity
             };
