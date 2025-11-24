@@ -591,6 +591,10 @@ class ProcessingHelper {
     If CODING PROBLEM:
     Provide:
     1. Code (clean ${language} implementation with inline comments explaining key steps and logic)
+       - IMPORTANT: Provide the MOST OPTIMIZED solution as the main implementation
+       - After the main solution, add 3-5 common interview follow-up variations as commented code sections
+       - Follow-ups should modify constraints (e.g., Input assumptions (sorted/unsorted, duplicates, negatives),Output requirements (indices vs values, one vs all solutions), Size/scale constraints,Space vs time trade-offs)
+       - For each follow-up: add header comment with question, complexity analysis, and ACTUAL WORKING CODE (full function or modified lines)
     2. My Thoughts (bullet points):
        - Summary: First, restate the problem in my own words
        - What the question is asking for
@@ -701,22 +705,33 @@ class ProcessingHelper {
             }
             // Check for response type
             const isSystemDesign = responseContent.includes("TYPE: SYSTEM DESIGN");
-            let code, thoughts, timeComplexity, spaceComplexity;
+            let code, thoughts, timeComplexity, spaceComplexity, followUpModifications;
             if (isSystemDesign) {
                 // For system design, the "code" is the entire markdown response minus the type header
                 code = responseContent.replace(/TYPE: (SYSTEM DESIGN|CODING)/i, "").trim();
                 thoughts = [];
                 timeComplexity = "N/A - System Design";
                 spaceComplexity = "N/A - System Design";
+                followUpModifications = '';
             }
             else {
                 // Remove TYPE: CODING if present
                 const cleanContent = responseContent.replace(/TYPE: (SYSTEM DESIGN|CODING)/i, "").trim();
                 // Extract parts from the response
                 const codeMatch = cleanContent.match(/```(?:\w+)?\s*([\s\S]*?)```/);
-                code = codeMatch ? codeMatch[1].trim() : cleanContent;
+                if (codeMatch) {
+                    // Extract the language from the code block
+                    const langMatch = cleanContent.match(/```(\w+)/);
+                    const lang = langMatch ? langMatch[1] : language;
+                    // Wrap the code in markdown code blocks for syntax highlighting
+                    code = `\`\`\`${lang}\n${codeMatch[1].trim()}\n\`\`\``;
+                }
+                else {
+                    // If no code block found, wrap the entire content as code
+                    code = `\`\`\`${language}\n${cleanContent}\n\`\`\``;
+                }
                 // Extract thoughts, looking for "My Thoughts" section with bullet points
-                const thoughtsRegex = /(?:My Thoughts|Thoughts:|Key Insights:|Reasoning:|Approach:)[:\s]*([\s\S]*?)(?:(?:\n\s*\d+\.)|Time complexity:|Space complexity:|$)/i;
+                const thoughtsRegex = /(?:My Thoughts|Thoughts:|Key Insights:|Reasoning:|Approach:)[:\s]*([\s\S]*?)(?:(?:\n\s*\d+\.)|Time complexity:|Space complexity:|Common Follow-up|$)/i;
                 const thoughtsMatch = cleanContent.match(thoughtsRegex);
                 thoughts = [];
                 if (thoughtsMatch && thoughtsMatch[1]) {
@@ -741,8 +756,8 @@ class ProcessingHelper {
                 // Extract complexity information
                 // Extract time and space complexity from response with improved regex to capture full explanations
                 // This pattern captures everything from "O(...)" until the next section or end of content
-                const timeComplexityPattern = /(?:Time\s*complexity|Time\s*Complexity)[\s\W]*(O\s*\([^)]+\)[^\n]*(?:\n(?!(?:Space|Time|\d+\.|###|##|\*\*)).*)*)/i;
-                const spaceComplexityPattern = /(?:Space\s*complexity|Space\s*Complexity)[\s\W]*(O\s*\([^)]+\)[^\n]*(?:\n(?!(?:Time|Space|\d+\.|###|##|\*\*)).*)*)/i;
+                const timeComplexityPattern = /(?:Time\s*complexity|Time\s*Complexity)[\s\W]*(O\s*\([^)]+\)[^\n]*(?:\n(?!(?:Space|Time|Common Follow-up|\d+\.|###|##|\*\*)).*)*)/i;
+                const spaceComplexityPattern = /(?:Space\s*complexity|Space\s*Complexity)[\s\W]*(O\s*\([^)]+\)[^\n]*(?:\n(?!(?:Time|Space|Common Follow-up|\d+\.|###|##|\*\*)).*)*)/i;
                 // Set default complexity explanations
                 timeComplexity = "O(n) - Assuming linear time complexity. Please see the solution explanation for more details.";
                 spaceComplexity = "O(n) - Assuming linear space complexity. Please see the solution explanation for more details.";
@@ -758,12 +773,20 @@ class ProcessingHelper {
                     // Clean up the extracted complexity, removing extra whitespace and newlines
                     spaceComplexity = spaceMatch[1].trim().replace(/\s+/g, ' ');
                 }
+                // Extract follow-up modifications section from the full response content (not cleanContent which has code stripped)
+                const followUpPattern = /(?:Common Follow-up Modifications|Follow-up Modifications)[:\s]*\n*([\s\S]*?)(?:$)/i;
+                const followUpMatch = responseContent.match(followUpPattern);
+                followUpModifications = '';
+                if (followUpMatch && followUpMatch[1]) {
+                    followUpModifications = followUpMatch[1].trim();
+                }
             }
             const formattedResponse = {
                 code: code,
                 thoughts: isSystemDesign ? [] : (thoughts && thoughts.length > 0 ? thoughts : ["Solution approach based on efficiency and readability"]),
                 time_complexity: timeComplexity,
-                space_complexity: spaceComplexity
+                space_complexity: spaceComplexity,
+                follow_up_modifications: isSystemDesign ? '' : followUpModifications
             };
             return { success: true, data: formattedResponse };
         }

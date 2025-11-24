@@ -312,6 +312,9 @@ const Solutions: React.FC<SolutionsProps> = ({
   const [spaceComplexityData, setSpaceComplexityData] = useState<string | null>(
     null
   )
+  const [followUpModificationsData, setFollowUpModificationsData] = useState<string | null>(
+    null
+  )
 
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const [tooltipHeight, setTooltipHeight] = useState(0)
@@ -428,6 +431,7 @@ const Solutions: React.FC<SolutionsProps> = ({
         setThoughtsData(null)
         setTimeComplexityData(null)
         setSpaceComplexityData(null)
+        setFollowUpModificationsData(null)
       }),
       window.electronAPI.onProblemExtracted((data) => {
         queryClient.setQueryData(["problem_statement"], data)
@@ -441,6 +445,7 @@ const Solutions: React.FC<SolutionsProps> = ({
           thoughts: string[]
           time_complexity: string
           space_complexity: string
+          follow_up_modifications: string
         } | null
         if (!solution) {
           setView("queue")
@@ -449,6 +454,7 @@ const Solutions: React.FC<SolutionsProps> = ({
         setThoughtsData(solution?.thoughts || null)
         setTimeComplexityData(solution?.time_complexity || null)
         setSpaceComplexityData(solution?.space_complexity || null)
+        setFollowUpModificationsData(solution?.follow_up_modifications || null)
         console.error("Processing error:", error)
       }),
       //when the initial solution is generated, we'll set the solution data to that
@@ -462,7 +468,8 @@ const Solutions: React.FC<SolutionsProps> = ({
           code: data.code,
           thoughts: data.thoughts,
           time_complexity: data.time_complexity,
-          space_complexity: data.space_complexity
+          space_complexity: data.space_complexity,
+          follow_up_modifications: data.follow_up_modifications
         }
 
         queryClient.setQueryData(["solution"], solutionData)
@@ -470,6 +477,7 @@ const Solutions: React.FC<SolutionsProps> = ({
         setThoughtsData(solutionData.thoughts || null)
         setTimeComplexityData(solutionData.time_complexity || null)
         setSpaceComplexityData(solutionData.space_complexity || null)
+        setFollowUpModificationsData(solutionData.follow_up_modifications || null)
 
         // Fetch latest screenshots when solution is successful
         const fetchScreenshots = async () => {
@@ -546,12 +554,14 @@ const Solutions: React.FC<SolutionsProps> = ({
           thoughts: string[]
           time_complexity: string
           space_complexity: string
+          follow_up_modifications: string
         } | null
 
         setSolutionData(solution?.code ?? null)
         setThoughtsData(solution?.thoughts ?? null)
         setTimeComplexityData(solution?.time_complexity ?? null)
         setSpaceComplexityData(solution?.space_complexity ?? null)
+        setFollowUpModificationsData(solution?.follow_up_modifications ?? null)
       }
     })
     return () => unsubscribe()
@@ -686,13 +696,70 @@ const Solutions: React.FC<SolutionsProps> = ({
                         </div>
                         
                         {/* Right column - Solution */}
-                        <div className="flex-1" style={{ maxWidth: "55%" }}>
+                        <div className="flex-1 space-y-4" style={{ maxWidth: "55%" }}>
                           <SolutionSection
                             title="Solution"
                             content={solutionData}
                             isLoading={!solutionData}
                             currentLanguage={currentLanguage}
                           />
+                          
+                          {followUpModificationsData && (
+                            <div className="space-y-2">
+                              <h2 className="text-[13px] font-medium text-white tracking-wide">
+                                Common Follow-up Modifications
+                              </h2>
+                              <div className="text-[13px] leading-[1.4] text-gray-100">
+                                <ReactMarkdown
+                                  rehypePlugins={[rehypeRaw]}
+                                  components={{
+                                    code({ node, inline, className, children, ...props }) {
+                                      const match = /language-(\w+)/.exec(className || '')
+                                      const codeString = String(children).replace(/\n$/, '')
+                                      
+                                      if (!inline && match) {
+                                        return (
+                                          <SyntaxHighlighter
+                                            showLineNumbers
+                                            language={match[1] === "golang" ? "go" : match[1]}
+                                            style={dracula}
+                                            customStyle={{
+                                              maxWidth: "100%",
+                                              margin: 0,
+                                              padding: "1rem",
+                                              whiteSpace: "pre-wrap",
+                                              wordBreak: "break-all",
+                                              backgroundColor: "rgba(22, 27, 34, 0.5)"
+                                            }}
+                                            wrapLongLines={true}
+                                            {...props}
+                                          >
+                                            {codeString}
+                                          </SyntaxHighlighter>
+                                        )
+                                      }
+                                      
+                                      return (
+                                        <code className="bg-white/10 px-1 py-0.5 rounded text-sm" {...props}>
+                                          {children}
+                                        </code>
+                                      )
+                                    },
+                                    h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-4 text-white">{children}</h1>,
+                                    h2: ({ children }) => <h2 className="text-xl font-semibold mt-5 mb-3 text-white">{children}</h2>,
+                                    h3: ({ children }) => <h3 className="text-lg font-medium mt-4 mb-2 text-white">{children}</h3>,
+                                    h4: ({ children }) => <h4 className="text-base font-medium mt-3 mb-2 text-white">{children}</h4>,
+                                    p: ({ children }) => <p className="mb-3 text-gray-100 leading-relaxed">{children}</p>,
+                                    ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
+                                    ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>,
+                                    li: ({ children }) => <li className="text-gray-100">{children}</li>,
+                                  }}
+                                >
+                                  {followUpModificationsData}
+                                </ReactMarkdown>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -731,6 +798,63 @@ const Solutions: React.FC<SolutionsProps> = ({
                           spaceComplexity={spaceComplexityData}
                           isLoading={!timeComplexityData || !spaceComplexityData}
                         />
+                        
+                        {followUpModificationsData && (
+                          <div className="space-y-2">
+                            <h2 className="text-[13px] font-medium text-white tracking-wide">
+                              Common Follow-up Modifications
+                            </h2>
+                            <div className="text-[13px] leading-[1.4] text-gray-100">
+                              <ReactMarkdown
+                                rehypePlugins={[rehypeRaw]}
+                                components={{
+                                  code({ node, inline, className, children, ...props }) {
+                                    const match = /language-(\w+)/.exec(className || '')
+                                    const codeString = String(children).replace(/\n$/, '')
+                                    
+                                    if (!inline && match) {
+                                      return (
+                                        <SyntaxHighlighter
+                                          showLineNumbers
+                                          language={match[1] === "golang" ? "go" : match[1]}
+                                          style={dracula}
+                                          customStyle={{
+                                            maxWidth: "100%",
+                                            margin: 0,
+                                            padding: "1rem",
+                                            whiteSpace: "pre-wrap",
+                                            wordBreak: "break-all",
+                                            backgroundColor: "rgba(22, 27, 34, 0.5)"
+                                          }}
+                                          wrapLongLines={true}
+                                          {...props}
+                                        >
+                                          {codeString}
+                                        </SyntaxHighlighter>
+                                      )
+                                    }
+                                    
+                                    return (
+                                      <code className="bg-white/10 px-1 py-0.5 rounded text-sm" {...props}>
+                                        {children}
+                                      </code>
+                                    )
+                                  },
+                                  h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-4 text-white">{children}</h1>,
+                                  h2: ({ children }) => <h2 className="text-xl font-semibold mt-5 mb-3 text-white">{children}</h2>,
+                                  h3: ({ children }) => <h3 className="text-lg font-medium mt-4 mb-2 text-white">{children}</h3>,
+                                  h4: ({ children }) => <h4 className="text-base font-medium mt-3 mb-2 text-white">{children}</h4>,
+                                  p: ({ children }) => <p className="mb-3 text-gray-100 leading-relaxed">{children}</p>,
+                                  ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
+                                  ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>,
+                                  li: ({ children }) => <li className="text-gray-100">{children}</li>,
+                                }}
+                              >
+                                {followUpModificationsData}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        )}
                       </>
                     )}
                   </>

@@ -460,22 +460,37 @@ function toggleMainWindow(): void {
 
 // Window movement functions
 function moveWindowHorizontal(updateFn: (x: number) => number): void {
-  if (!state.mainWindow) return
+  if (!state.mainWindow || state.mainWindow.isDestroyed()) return
+  
   state.currentX = updateFn(state.currentX)
-  state.mainWindow.setPosition(
-    Math.round(state.currentX),
-    Math.round(state.currentY)
-  )
+  try {
+    state.mainWindow.setPosition(
+      Math.round(state.currentX),
+      Math.round(state.currentY)
+    )
+  } catch (error) {
+    console.error("Failed to set window position:", error)
+  }
 }
 
 function moveWindowVertical(updateFn: (y: number) => number): void {
-  if (!state.mainWindow) return
+  if (!state.mainWindow || state.mainWindow.isDestroyed()) return
+
+  // Ensure we have valid window dimensions
+  if (!state.windowSize || state.windowSize.height === 0) {
+    try {
+      const bounds = state.mainWindow.getBounds()
+      state.windowSize = { width: bounds.width, height: bounds.height }
+    } catch (error) {
+      console.error("Failed to get window bounds:", error)
+      return
+    }
+  }
 
   const newY = updateFn(state.currentY)
   // Allow window to go 2/3 off screen in either direction
-  const maxUpLimit = (-(state.windowSize?.height || 0) * 2) / 3
-  const maxDownLimit =
-    state.screenHeight + ((state.windowSize?.height || 0) * 2) / 3
+  const maxUpLimit = (-(state.windowSize.height) * 2) / 3
+  const maxDownLimit = state.screenHeight + ((state.windowSize.height) * 2) / 3
 
   // Log the current state and limits
   console.log({
@@ -483,34 +498,75 @@ function moveWindowVertical(updateFn: (y: number) => number): void {
     maxUpLimit,
     maxDownLimit,
     screenHeight: state.screenHeight,
-    windowHeight: state.windowSize?.height,
+    windowHeight: state.windowSize.height,
     currentY: state.currentY
   })
 
   // Only update if within bounds
   if (newY >= maxUpLimit && newY <= maxDownLimit) {
     state.currentY = newY
-    state.mainWindow.setPosition(
-      Math.round(state.currentX),
-      Math.round(state.currentY)
-    )
+    try {
+      state.mainWindow.setPosition(
+        Math.round(state.currentX),
+        Math.round(state.currentY)
+      )
+    } catch (error) {
+      console.error("Failed to set window position:", error)
+    }
+  } else {
+    console.log("Window position blocked - would exceed screen bounds")
   }
 }
 
 // Window dimension functions
 function setWindowDimensions(width: number, height: number): void {
-  if (!state.mainWindow?.isDestroyed()) {
+  if (!state.mainWindow || state.mainWindow.isDestroyed()) {
+    console.log("Cannot set dimensions - window is null or destroyed")
+    return
+  }
+
+  // Validate dimensions
+  if (width <= 0 || height <= 0 || !isFinite(width) || !isFinite(height)) {
+    console.log("Invalid dimensions provided:", { width, height })
+    return
+  }
+
+  try {
     const [currentX, currentY] = state.mainWindow.getPosition()
     const primaryDisplay = screen.getPrimaryDisplay()
     const workArea = primaryDisplay.workAreaSize
     const maxWidth = Math.floor(workArea.width * 0.5)
+    const newHeight = Math.ceil(height)
+    const newWidth = Math.min(width + 32, maxWidth)
+
+    // Ensure window stays within screen bounds
+    const maxY = workArea.height - newHeight
+    const clampedY = Math.max(0, Math.min(currentY, maxY))
+    const clampedX = Math.max(0, Math.min(currentX, workArea.width - newWidth))
+
+    console.log("Setting window dimensions:", {
+      currentX,
+      currentY,
+      clampedX,
+      clampedY,
+      newWidth,
+      newHeight,
+      maxY
+    })
 
     state.mainWindow.setBounds({
-      x: Math.min(currentX, workArea.width - maxWidth),
-      y: currentY,
-      width: Math.min(width + 32, maxWidth),
-      height: Math.ceil(height)
+      x: clampedX,
+      y: clampedY,
+      width: newWidth,
+      height: newHeight
     })
+
+    // Update state
+    state.currentX = clampedX
+    state.currentY = clampedY
+    state.windowSize = { width: newWidth, height: newHeight }
+  } catch (error) {
+    console.error("Failed to set window dimensions:", error)
   }
 }
 

@@ -76,19 +76,25 @@ class ShortcutsHelper {
             console.error("Failed to register CommandOrControl+Return shortcut");
         }
         electron_1.globalShortcut.register("CommandOrControl+R", () => {
-            console.log("Command + R pressed. Canceling requests and resetting queues...");
-            // Cancel ongoing API requests
-            this.deps.processingHelper?.cancelOngoingRequests();
-            // Clear both screenshot queues
-            this.deps.clearQueues();
-            console.log("Cleared queues.");
-            // Update the view state to 'queue'
-            this.deps.setView("queue");
-            // Notify renderer process to switch view to 'queue'
-            const mainWindow = this.deps.getMainWindow();
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send("reset-view");
-                mainWindow.webContents.send("reset");
+            try {
+                console.log("Command + R pressed. Canceling requests and resetting queues...");
+                // Cancel ongoing API requests
+                this.deps.processingHelper?.cancelOngoingRequests();
+                // Clear both screenshot queues
+                this.deps.clearQueues();
+                console.log("Cleared queues.");
+                // Update the view state to 'queue'
+                this.deps.setView("queue");
+                // Notify renderer process to switch view to 'queue'
+                const mainWindow = this.deps.getMainWindow();
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send("reset-view");
+                    mainWindow.webContents.send("reset");
+                }
+                console.log("Reset completed successfully");
+            }
+            catch (error) {
+                console.error("Error during Command+R reset:", error);
             }
         });
         // New shortcuts for moving the window
